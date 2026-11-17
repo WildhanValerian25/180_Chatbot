@@ -63,3 +63,26 @@
                 </button>
             </div>
         </header>
+
+        <main class="chat-main" id="chatContainer" aria-live="polite">
+            <section class="empty-state" id="emptyState">
+                <div class="empty-badge">Asisten Virtual</div>
+                <h2>Ada yang bisa dibantu hari ini?</h2>
+                <p>Ajukan pertanyaan, minta bantuan kode, atau diskusikan topik apa saja.</p>
+
+                <div class="prompt-suggestions" aria-label="Contoh pertanyaan">
+                    <button type="button" class="suggestion-chip" data-prompt="Jelaskan perbedaan REST API dan GraphQL secara singkat.">
+                        Jelaskan perbedaan REST API dan GraphQL
+                    </button>
+                    <button type="button" class="suggestion-chip" data-prompt="Buatkan contoh fungsi fetch POST di JavaScript beserta penanganan errornya.">
+                        Contoh fungsi fetch POST di JavaScript
+                    </button>
+                    <button type="button" class="suggestion-chip" data-prompt="Berikan 5 tips menulis kode backend Node.js yang rapi dan mudah dirawat.">
+                        Tips menulis kode Node.js yang rapi
+                    </button>
+                </div>
+            </section>
+
+            <div class="messages" id="messagesList"></div>
+        </main>
+        
