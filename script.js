@@ -141,3 +141,78 @@ function autoResizeInput() {
     messageInput.style.height = "auto";
     messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
 }
+
+// --- Message DOM Creation ---
+function appendMessageElement(role, content = "") {
+    emptyState.classList.add("hidden");
+
+    const row = document.createElement("div");
+    row.className = `message-row ${role}`;
+
+    if (role === "assistant" || role === "error") {
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.setAttribute("aria-hidden", "true");
+        avatar.textContent = role === "error" ? "!" : "AI";
+        row.appendChild(avatar);
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "bubble-wrap";
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    if (role === "user") {
+        bubble.textContent = content;
+    } else if (role === "error") {
+        bubble.textContent = content;
+    } else {
+        bubble.innerHTML = renderMarkdown(content);
+    }
+
+    wrap.appendChild(bubble);
+
+    if (role === "assistant") {
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.className = "action-link";
+        copyBtn.textContent = "Salin";
+        copyBtn.addEventListener("click", () => {
+            const raw = bubble.dataset.raw || "";
+            navigator.clipboard.writeText(raw).then(() => {
+                copyBtn.textContent = "Tersalin";
+                setTimeout(() => {
+                    copyBtn.textContent = "Salin";
+                }, 1500);
+            });
+        });
+
+        actions.appendChild(copyBtn);
+        wrap.appendChild(actions);
+    }
+
+    row.appendChild(wrap);
+    messagesList.appendChild(row);
+    scrollToBottom();
+
+    return bubble;
+}
+
+// Delegate copy button clicks inside code blocks
+messagesList.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    const codeEl = btn.closest(".code-block")?.querySelector("code");
+    if (!codeEl) return;
+
+    navigator.clipboard.writeText(codeEl.textContent).then(() => {
+        btn.textContent = "Tersalin";
+        setTimeout(() => {
+            btn.textContent = "Salin";
+        }, 1500);
+    });
+});
