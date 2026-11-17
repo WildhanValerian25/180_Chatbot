@@ -20,3 +20,46 @@
         rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+<header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>Chatbot AI</h1>
+                    <span class="status-text" id="statusText">OpenRouterAPI</span>
+                </div>
+            </div>
+
+            <div class="topbar-actions">
+                <button
+                    type="button"
+                    class="icon-btn"
+                    id="themeToggle"
+                    aria-label="Ganti tema tampilan"
+                    title="Ganti tema (Terang / Gelap)"
+                >
+                    <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4" />
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                    </svg>
+                    <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                    </svg>
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    id="newChatBtn"
+                    title="Mulai percakapan baru"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    <span>Chat Baru</span>
+                </button>
+            </div>
+        </header>
