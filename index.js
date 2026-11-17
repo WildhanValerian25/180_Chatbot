@@ -4,94 +4,101 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static("public"));
 
-app.get("/", (req,res) => {
+app.get("/", (req, res) => {
     res.redirect("/index.html");
 });
 
-app.post("/api/chat", async (req,res) => {
+app.post("/api/chat", async (req, res) => {
     try {
-        const message = req.body.message;
+        let messages = req.body.messages || req.body.message;
 
-        if (!message || !Array.isArray(message)) {
-            return res.status(400).json({
-                error: "Messages harus berupa Array"
-            });
+        if (typeof messages === "string") {
+            messages = [{ role: "user", content: messages }];
         }
 
-        const response = await fetch(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-                method: "POST",
+        if (!messages || !Array.isArray(messages)) {
+            return res.status(400).send("Messages harus berupa String atau Array");
+        }
 
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`
-                },
+        // Fungsi fetch ke OpenRouter dengan Auto-Retry jika terkena Rate Limit (429)
+        const fetchOpenRouter = async (retries = 2) => {
+            for (let i = 0; i <= retries; i++) {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                        "HTTP-Referer": "http://localhost:3000",
+                        "X-Title": "Chatbot AI"
+                    },
+                    body: JSON.stringify({
+                        model: "inclusionai/ling-3.2-flash:free", // Sesuai instruksi praktikum
+                        messages: messages,
+                        temperature: 0.7,
+                        max_tokens: 1000,
+                        stream: true
+                    })
+                });
 
-                body: JSON.stringify({
-                    model: "inclusionai/ling-3.2-flash:free",
-                    messages: message,
-                    temperature: 0.7,
-                    max_tokens: 1000,
-                    stream: true
-                })
+                if (response.ok) return response;
+
+                // Jika rate limit (429) dan masih ada sisa retry, tunggu 2 detik lalu coba lagi
+                if (response.status === 429 && i < retries) {
+                    console.log(`[OpenRouter 429] Antrean padat, mencoba ulang otomatis (${i + 1}/${retries})...`);
+                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                    continue;
+                }
+
+                return response;
             }
-        );
+        };
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error("OpenRouter Error:", errorData);
-            return res.status(response.status).json({error: errorData});
-        }
+        const response = await fetchOpenRouter();
 
-        // Header untuk Streaming
+        // Mengatur Header SSE Streaming
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
+        // Jika respons tetap gagal setelah percobaan ulang
+        if (!response.ok) {
+            const errorJson = await response.json().catch(() => ({}));
+            console.error("OpenRouter Error Detail:", errorJson);
+
+            let msg = "Model Ling 3.2 Flash sedang dipadati antrean server (Rate Limit 429). Silakan tunggu 3–5 detik lalu kirim ulang.";
+            if (response.status !== 429) {
+                msg = `Terjadi kesalahan pada server AI (${response.status}).`;
+            }
+
+            res.write(`data: ${JSON.stringify(msg)}\n\n`);
+            res.write("data: [DONE]\n\n");
+            return res.end();
+        }
+
+        // Membaca Data Stream dari OpenRouter
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-
         let buffer = "";
 
         while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-                break;
-            }
+            if (done) break;
 
-            buffer += decoder.decode(value, {
-                stream: true
-            });
-
+            buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
-
-            // Simpan bagian terakhir karena mungkin belum lengkap
             buffer = lines.pop();
 
             for (const line of lines) {
                 const trimmedLine = line.trim();
-
-                if (!trimmedLine) {
-                    continue;
-                }
-                if (!trimmedLine.startsWith("data")) {
-                    continue;
-                }
-                if (!trimmedLine.startsWith("data:")) {
-                    continue;
-                }
+                if (!trimmedLine || !trimmedLine.startsWith("data:")) continue;
 
                 const data = trimmedLine.slice(5).trim();
-
-                if (data === "[DONE]") {
-                    continue;
-                }
+                if (data === "[DONE]") continue;
 
                 try {
                     const json = JSON.parse(data);
@@ -100,7 +107,7 @@ app.post("/api/chat", async (req,res) => {
                         res.write(`data: ${JSON.stringify(content)}\n\n`);
                     }
                 } catch (error) {
-                    console.error("Gagal parsing streaming data:", error);
+                    // Abaikan potongan chunk yang belum lengkap
                 }
             }
         }
@@ -110,7 +117,7 @@ app.post("/api/chat", async (req,res) => {
     } catch (error) {
         console.error("Server Error:", error);
         if (!res.headerSent) {
-            res.status(500).json({error: "Terjadi kesalahan pada server"});
+            res.status(500).send("Terjadi kesalahan koneksi pada server.");
         } else {
             res.write(`data: ${JSON.stringify("Terjadi kesalahan pada server")}\n\n`);
             res.end();
@@ -121,3 +128,5 @@ app.post("/api/chat", async (req,res) => {
 app.listen(PORT, () => {
     console.log(`Server berjalan di http://localhost:${PORT}`);
 });
+
+module.exports = app;
