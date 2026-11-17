@@ -216,3 +216,104 @@ messagesList.addEventListener("click", (e) => {
         }, 1500);
     });
 });
+
+// --- Chat Request & SSE Streaming ---
+async function sendMessage(text) {
+    const trimmed = text.trim();
+    if (!trimmed || isStreaming) return;
+
+    messageInput.value = "";
+    autoResizeInput();
+    updateSendButton();
+
+    conversation.push({ role: "user", content: trimmed });
+    appendMessageElement("user", trimmed);
+
+    const assistantBubble = appendMessageElement("assistant", "");
+    assistantBubble.classList.add("streaming-cursor");
+    assistantBubble.dataset.raw = "";
+
+    abortController = new AbortController();
+    setStreamingState(true);
+
+    let fullReply = "";
+
+    try {
+        const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: conversation }),
+            signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+            let errMsg = `Terjadi kesalahan (${response.status})`;
+            try {
+                const errJson = await response.json();
+                if (errJson?.error) {
+                    errMsg = typeof errJson.error === "string"
+                        ? errJson.error
+                        : JSON.stringify(errJson.error);
+                }
+            } catch {
+                // ignore JSON parse failure
+            }
+            throw new Error(errMsg);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine || !trimmedLine.startsWith("data:")) continue;
+
+                const data = trimmedLine.slice(5).trim();
+                if (data === "[DONE]") continue;
+
+                try {
+                    const chunk = JSON.parse(data);
+                    if (typeof chunk === "string") {
+                        fullReply += chunk;
+                        assistantBubble.dataset.raw = fullReply;
+                        assistantBubble.innerHTML = renderMarkdown(fullReply);
+                        scrollToBottom();
+                    }
+                } catch {
+                    // ignore malformed SSE chunk
+                }
+            }
+        }
+
+        if (fullReply) {
+            conversation.push({ role: "assistant", content: fullReply });
+        } else {
+            assistantBubble.textContent = "Tidak ada respons dari model.";
+        }
+    } catch (error) {
+        if (error.name === "AbortError") {
+            if (fullReply) {
+                conversation.push({ role: "assistant", content: fullReply });
+            } else {
+                assistantBubble.closest(".message-row")?.remove();
+            }
+        } else {
+            assistantBubble.closest(".message-row")?.remove();
+            appendMessageElement("error", error.message || "Gagal terhubung ke server.");
+        }
+    } finally {
+        assistantBubble.classList.remove("streaming-cursor");
+        abortController = null;
+        setStreamingState(false);
+        messageInput.focus();
+    }
+}
