@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const path = require("path"); // 1. Tambahkan modul path bawaan Node.js
 
 dotenv.config();
 
@@ -7,10 +8,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static("public"));
 
+// 2. Gunakan path.join(__dirname, 'public') agar terbaca di Vercel Serverless
+app.use(express.static(path.join(__dirname, "public")));
+
+// 3. Kirim file index.html secara langsung untuk route utama
 app.get("/", (req, res) => {
-    res.redirect("/index.html");
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.post("/api/chat", async (req, res) => {
@@ -25,7 +29,6 @@ app.post("/api/chat", async (req, res) => {
             return res.status(400).send("Messages harus berupa String atau Array");
         }
 
-        // Fungsi fetch ke OpenRouter dengan Auto-Retry jika terkena Rate Limit (429)
         const fetchOpenRouter = async (retries = 2) => {
             for (let i = 0; i <= retries; i++) {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -33,11 +36,11 @@ app.post("/api/chat", async (req, res) => {
                     headers: {
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                        "HTTP-Referer": "http://localhost:3000",
-                        "X-Title": "Chatbot AI"
+                        "HTTP-Referer": "https://180-chatbot.vercel.app",
+                        "X-Title": "180_Chatbot"
                     },
                     body: JSON.stringify({
-                        model: "inclusionai/ling-3.2-flash:free", // Sesuai instruksi praktikum
+                        model: "inclusionai/ling-3.2-flash:free",
                         messages: messages,
                         temperature: 0.7,
                         max_tokens: 1000,
@@ -47,7 +50,6 @@ app.post("/api/chat", async (req, res) => {
 
                 if (response.ok) return response;
 
-                // Jika rate limit (429) dan masih ada sisa retry, tunggu 2 detik lalu coba lagi
                 if (response.status === 429 && i < retries) {
                     console.log(`[OpenRouter 429] Antrean padat, mencoba ulang otomatis (${i + 1}/${retries})...`);
                     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -60,12 +62,10 @@ app.post("/api/chat", async (req, res) => {
 
         const response = await fetchOpenRouter();
 
-        // Mengatur Header SSE Streaming
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
-        // Jika respons tetap gagal setelah percobaan ulang
         if (!response.ok) {
             const errorJson = await response.json().catch(() => ({}));
             console.error("OpenRouter Error Detail:", errorJson);
@@ -80,7 +80,6 @@ app.post("/api/chat", async (req, res) => {
             return res.end();
         }
 
-        // Membaca Data Stream dari OpenRouter
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
