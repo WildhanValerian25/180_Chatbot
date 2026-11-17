@@ -12,3 +12,22 @@ const statusText = document.getElementById("statusText");
 let conversation = [];
 let abortController = null;
 let isStreaming = false;
+
+// --- Theme ---
+function initTheme() {
+    const saved = localStorage.getItem("chatbot-theme");
+    if (saved === "dark" || saved === "light") {
+        document.documentElement.setAttribute("data-theme", saved);
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        document.documentElement.setAttribute("data-theme", "dark");
+    }
+}
+
+themeToggle.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("chatbot-theme", next);
+});
+
+initTheme();
