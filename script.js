@@ -317,3 +317,49 @@ async function sendMessage(text) {
         messageInput.focus();
     }
 }
+
+// --- Event Listeners ---
+chatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    sendMessage(messageInput.value);
+});
+
+messageInput.addEventListener("input", () => {
+    autoResizeInput();
+    updateSendButton();
+});
+
+messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(messageInput.value);
+    }
+});
+
+stopBtn.addEventListener("click", () => {
+    if (abortController) {
+        abortController.abort();
+    }
+});
+
+newChatBtn.addEventListener("click", () => {
+    if (abortController) {
+        abortController.abort();
+    }
+    conversation = [];
+    messagesList.innerHTML = "";
+    emptyState.classList.remove("hidden");
+    messageInput.value = "";
+    autoResizeInput();
+    updateSendButton();
+    messageInput.focus();
+});
+
+document.querySelectorAll(".suggestion-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+        const prompt = chip.getAttribute("data-prompt");
+        if (prompt) {
+            sendMessage(prompt);
+        }
+    });
+});
